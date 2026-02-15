@@ -15,19 +15,22 @@ class Routes {
     switch (settings.name) {
       case auth:
         return MaterialPageRoute(builder: (_) => const AuthPage());
+
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupPage());
+
       case home:
         return MaterialPageRoute(builder: (_) => const HomeShellPage());
+
       case petDetail:
         final petId = settings.arguments as String?;
-        return MaterialPageRoute(builder: (_) => PetDetailPage(petId: petId));
-      default:
         return MaterialPageRoute(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('Route not found')),
-          ),
+          builder: (_) => PetDetailPage(petId: petId ?? 'unknown'),
         );
+
+      default:
+        // Safer default: send user to auth for demo
+        return MaterialPageRoute(builder: (_) => const AuthPage());
     }
   }
 }

@@ -13,6 +13,7 @@ class HomeShellPage extends StatefulWidget {
 class _HomeShellPageState extends State<HomeShellPage> {
   int _index = 0;
 
+  // Keep pages alive (scroll positions, forms, etc.)
   late final List<Widget> _pages = const [
     FeedPage(),
     CreatePostPage(),
@@ -24,9 +25,12 @@ class _HomeShellPageState extends State<HomeShellPage> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: _pages,
+      body: SafeArea(
+        top: false, // allow app bar areas inside each tab page
+        child: IndexedStack(
+          index: _index,
+          children: _pages,
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

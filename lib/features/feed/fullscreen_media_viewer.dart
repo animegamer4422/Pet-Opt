@@ -22,6 +22,7 @@ class FullscreenMediaViewer extends StatefulWidget {
 class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
   late final PageController _page;
   int _index = 0;
+  bool _uiVisible = true;
 
   @override
   void initState() {
@@ -36,85 +37,69 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
     super.dispose();
   }
 
+  void _toggleUi() => setState(() => _uiVisible = !_uiVisible);
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Stack(
           children: [
-            PageView.builder(
-              controller: _page,
-              itemCount: widget.media.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) {
-                final item = widget.media[i];
-                final heroTag = 'post_${widget.postId}_$i';
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleUi,
+              child: PageView.builder(
+                controller: _page,
+                itemCount: widget.media.length,
+                onPageChanged: (i) => setState(() => _index = i),
+                itemBuilder: (context, i) {
+                  final item = widget.media[i];
+                  final heroTag = 'post_${widget.postId}_$i';
 
-                return Center(
-                  child: Hero(
-                    tag: heroTag,
-                    child: item.type == MediaType.image
-                        ? _FullscreenImage(path: item.path)
-                        : _FullscreenVideo(path: item.path),
-                  ),
-                );
-              },
-            ),
-
-            // Top bar (close + counter)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white),
+                  return Center(
+                    child: Hero(
+                      tag: heroTag,
+                      child: item.type == MediaType.image
+                          ? _FullscreenImage(path: item.path)
+                          : _FullscreenVideo(path: item.path),
                     ),
-                    const Spacer(),
-                    if (widget.media.length > 1)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.14),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.white.withOpacity(0.18)),
-                        ),
-                        child: Text(
-                          '${_index + 1}/${widget.media.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
 
-            // Bottom hint (optional)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 14,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white.withOpacity(0.16)),
-                  ),
-                  child: const Text(
-                    'Swipe to browse',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            AnimatedOpacity(
+              opacity: _uiVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 150),
+              child: IgnorePointer(
+                ignoring: !_uiVisible,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                      const Spacer(),
+                      if (widget.media.length > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Colors.white.withOpacity(0.18)),
+                          ),
+                          child: Text(
+                            '${_index + 1}/${widget.media.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),

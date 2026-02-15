@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../../data/post_store.dart';
 import '../../models/post.dart';
 
 class CreatePostPage extends StatefulWidget {
@@ -24,54 +26,58 @@ class _CreatePostPageState extends State<CreatePostPage> {
     super.dispose();
   }
 
-void _showAddMediaSheet() {
-  showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Add images'),
-                subtitle: const Text('Select one or more photos'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _addImages();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.videocam),
-                title: const Text('Add video'),
-                subtitle: const Text('Select a video clip'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _addVideo();
-                },
-              ),
-            ],
+  void _showAddMediaSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Add images'),
+                  subtitle: const Text('Select one or more photos'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _addImages();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.videocam),
+                  title: const Text('Add video'),
+                  subtitle: const Text('Select a video clip'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _addVideo();
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Future<void> _addImages() async {
     final images = await _picker.pickMultiImage(imageQuality: 85);
+    if (!mounted) return;
     if (images.isEmpty) return;
 
     setState(() {
-      _media.addAll(images.map((x) => MediaItem(type: MediaType.image, path: x.path)));
+      _media.addAll(
+        images.map((x) => MediaItem(type: MediaType.image, path: x.path)),
+      );
     });
   }
 
   Future<void> _addVideo() async {
     final video = await _picker.pickVideo(source: ImageSource.gallery);
+    if (!mounted) return;
     if (video == null) return;
 
     setState(() {
@@ -84,6 +90,7 @@ void _showAddMediaSheet() {
   }
 
   Future<void> _submit() async {
+    // Media is mandatory
     if (_media.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add at least one image/video.')),
@@ -96,15 +103,29 @@ void _showAddMediaSheet() {
     setState(() => _posting = true);
 
     // TODO: upload media + create post in backend
-    await Future.delayed(const Duration(milliseconds: 700));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
+
+    final post = Post(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: _title.text.trim(),
+      media: List<MediaItem>.from(_media),
+      authorName: 'You', // later: use profile name
+      createdAt: DateTime.now(),
+    );
+
+    PostStore.instance.addPost(post);
+
     setState(() => _posting = false);
 
+    // Clear form (CreatePost is a tab, so don’t pop)
+    _title.clear();
+    setState(() => _media.clear());
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Posted (mock)')),
+      const SnackBar(content: Text('Posted!')),
     );
-    Navigator.pop(context);
   }
 
   @override
@@ -116,16 +137,15 @@ void _showAddMediaSheet() {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Media pickers
-FilledButton.icon(
-  onPressed: _posting ? null : _showAddMediaSheet,
-  icon: const Icon(Icons.add_photo_alternate),
-  label: const Text('Add media'),
-  style: FilledButton.styleFrom(
-    minimumSize: const Size.fromHeight(56),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-  ),
-),
+          FilledButton.icon(
+            onPressed: _posting ? null : _showAddMediaSheet,
+            icon: const Icon(Icons.add_photo_alternate),
+            label: const Text('Add media'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
 
           const SizedBox(height: 14),
 
