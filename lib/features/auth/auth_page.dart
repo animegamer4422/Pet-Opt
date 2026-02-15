@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../models/auth_models.dart';
+import '../auth/data/auth_store.dart';
+
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -30,9 +32,18 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-void _continueAfterAuth() {
+Future<void> _continueAfterAuth() async {
+  final email = (_isLogin ? _loginEmail.text : _signupEmail.text).trim();
+
+  await AuthStore.instance.login(
+    email: email.isEmpty ? 'demo@petopt.local' : email,
+    accountType: _accountType,
+  );
+
+  if (!mounted) return;
   Navigator.pushReplacementNamed(context, Routes.profileSetup);
 }
+
 
   @override
   Widget build(BuildContext context) {
