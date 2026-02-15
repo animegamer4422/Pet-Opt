@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../data/post_store.dart';
 import '../../models/post.dart';
+import '../onboarding/data/profile_store.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
@@ -89,6 +90,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
     setState(() => _media.removeAt(i));
   }
 
+  String _resolveAuthorName() {
+    final profileName = ProfileStore.instance.profile?.name.trim();
+    if (profileName != null && profileName.isNotEmpty) return profileName;
+    return 'You';
+  }
+
   Future<void> _submit() async {
     // Media is mandatory
     if (_media.isEmpty) {
@@ -102,17 +109,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
     setState(() => _posting = true);
 
-    // TODO: upload media + create post in backend
+    // Demo: simulate upload / backend
     await Future.delayed(const Duration(milliseconds: 500));
-
     if (!mounted) return;
+
+    final authorName = _resolveAuthorName();
 
     final post = Post(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: _title.text.trim(),
       media: List<MediaItem>.from(_media),
-      authorName: 'You', // later: use profile name
+      authorName: authorName,
       createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
     );
 
     PostStore.instance.addPost(post);
@@ -143,7 +153,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
             label: const Text('Add media'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
 
@@ -188,8 +200,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 labelText: 'Post title',
                 prefixIcon: Icon(Icons.title),
               ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Title is required' : null,
               textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _posting ? null : _submit(),
             ),
           ),
 
@@ -236,6 +250,9 @@ class _MediaGrid extends StatelessWidget {
       ),
       itemBuilder: (context, i) {
         final item = items[i];
+
+        final isVideo = item.type == MediaType.video;
+
         return Stack(
           children: [
             ClipRRect(
@@ -244,12 +261,29 @@ class _MediaGrid extends StatelessWidget {
                 color: cs.surfaceContainerHighest,
                 child: Center(
                   child: Icon(
-                    item.type == MediaType.image ? Icons.image : Icons.videocam,
+                    isVideo ? Icons.videocam : Icons.image,
                     size: 28,
                   ),
                 ),
               ),
             ),
+
+            // Play badge for videos
+            if (isVideo)
+              Positioned(
+                bottom: 8,
+                left: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: cs.surface.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Icon(Icons.play_arrow, size: 16),
+                ),
+              ),
+
             Positioned(
               top: 6,
               right: 6,

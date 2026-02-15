@@ -112,4 +112,60 @@ class PostStore extends ChangeNotifier {
     p.saved = !p.saved;
     notifyListeners();
   }
+
+  void updatePost({
+  required String postId,
+  String? title,
+  List<MediaItem>? media,
+}) {
+  final index = _posts.indexWhere((x) => x.id == postId);
+  if (index == -1) return;
+
+  final old = _posts[index];
+
+  final updated = Post(
+    id: old.id,
+    title: title ?? old.title,
+    authorName: old.authorName,
+    createdAt: old.createdAt,
+    likeCount: old.likeCount,
+    commentCount: old.commentCount,
+    media: media ?? old.media,
+  )
+    ..liked = old.liked
+    ..saved = old.saved;
+
+  _posts[index] = updated;
+  notifyListeners();
 }
+
+void claimLegacyYouPosts(String newAuthorName) {
+  for (int i = 0; i < _posts.length; i++) {
+    final p = _posts[i];
+
+    if (p.authorName == 'You') {
+      final updated = Post(
+        id: p.id,
+        title: p.title,
+        authorName: newAuthorName,
+        createdAt: p.createdAt,
+        likeCount: p.likeCount,
+        commentCount: p.commentCount,
+        media: p.media,
+      )
+        ..liked = p.liked
+        ..saved = p.saved;
+
+      _posts[i] = updated;
+    }
+  }
+
+  notifyListeners();
+}
+
+void deletePost(String postId) {
+  _posts.removeWhere((x) => x.id == postId);
+  notifyListeners();
+}
+}
+
