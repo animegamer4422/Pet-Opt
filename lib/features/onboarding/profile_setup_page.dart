@@ -36,7 +36,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    Navigator.pushReplacementNamed(context, Routes.feed);
+Navigator.pushReplacementNamed(context, Routes.home);
   }
 
   @override
