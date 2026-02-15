@@ -30,10 +30,9 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  void _continueAfterAuth() {
-    // Mock success for now.
-    Navigator.pushReplacementNamed(context, Routes.feed);
-  }
+void _continueAfterAuth() {
+  Navigator.pushReplacementNamed(context, Routes.profileSetup);
+}
 
   @override
   Widget build(BuildContext context) {
