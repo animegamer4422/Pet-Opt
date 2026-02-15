@@ -36,10 +36,12 @@ class _EditPostPageState extends State<EditPostPage> {
     }
 
     setState(() => _saving = true);
-    PostStore.instance.updatePost(postId: widget.post.id, title: v);
-    await Future.delayed(const Duration(milliseconds: 150)); // tiny polish
 
+    PostStore.instance.updatePost(postId: widget.post.id, title: v);
+
+    await Future.delayed(const Duration(milliseconds: 120));
     if (!mounted) return;
+
     setState(() => _saving = false);
     Navigator.pop(context);
   }
@@ -62,13 +64,11 @@ class _EditPostPageState extends State<EditPostPage> {
             onPressed: _saving ? null : _delete,
             icon: const Icon(Icons.delete_outline),
           ),
-          const SizedBox(width: 6),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Media preview (read-only for now)
           if (widget.post.media.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -82,23 +82,7 @@ class _EditPostPageState extends State<EditPostPage> {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-
-          if (widget.post.media.length > 1)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text('${widget.post.media.length} media'),
-              ),
-            ),
-
           const SizedBox(height: 16),
-
           TextField(
             controller: _title,
             decoration: const InputDecoration(
@@ -108,9 +92,7 @@ class _EditPostPageState extends State<EditPostPage> {
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _save(),
           ),
-
           const SizedBox(height: 16),
-
           FilledButton.icon(
             onPressed: _saving ? null : _save,
             icon: _saving
@@ -121,7 +103,9 @@ class _EditPostPageState extends State<EditPostPage> {
                   )
                 : const Icon(Icons.check),
             label: Text(_saving ? 'Saving…' : 'Save changes'),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+            ),
           ),
         ],
       ),

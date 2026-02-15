@@ -167,5 +167,6 @@ void deletePost(String postId) {
   _posts.removeWhere((x) => x.id == postId);
   notifyListeners();
 }
+
 }
 

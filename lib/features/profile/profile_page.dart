@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../data/post_store.dart';
-import '../../models/post.dart';
+
+import '../../models/auth_models.dart';
+import '../auth/data/auth_store.dart';
 import '../onboarding/data/profile_store.dart';
-import '../post/edit_post_page.dart';
-
-
-enum AccountType { individual, organization }
-enum PrimaryIntent { adopt, post }
 
 String accountTypeLabel(AccountType v) =>
     v == AccountType.individual ? 'Individual' : 'Organization';
-
-String intentLabel(PrimaryIntent v) =>
-    v == PrimaryIntent.adopt ? 'Adopt a pet' : 'Post for adoption';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,6 +13,8 @@ class ProfilePage extends StatefulWidget {
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
+
+enum _Field { name, location, phone }
 
 class _ProfilePageState extends State<ProfilePage> {
   final _name = TextEditingController();
@@ -80,18 +75,18 @@ class _ProfilePageState extends State<ProfilePage> {
     return null;
   }
 
-  void _revertField(Field f) {
+  void _revertField(_Field f) {
     final p = ProfileStore.instance.profile;
     switch (f) {
-      case Field.name:
+      case _Field.name:
         _name.text = p?.name ?? '';
         _editName = false;
         break;
-      case Field.location:
+      case _Field.location:
         _location.text = p?.location ?? '';
         _editLocation = false;
         break;
-      case Field.phone:
+      case _Field.phone:
         _phone.text = p?.phone ?? '';
         _editPhone = false;
         break;
@@ -100,16 +95,12 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {});
   }
 
-  Future<void> _confirmField(Field f) async {
-    final cs = Theme.of(context).colorScheme;
-
+  Future<void> _confirmField(_Field f) async {
     switch (f) {
-      case Field.name:
+      case _Field.name:
         final err = _validateName(_name.text);
         if (err != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err)),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
           return;
         }
         setState(() => _savingName = true);
@@ -117,34 +108,30 @@ class _ProfilePageState extends State<ProfilePage> {
           await _saveProfile(name: _name.text);
           if (!mounted) return;
           setState(() => _editName = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Name updated')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Name updated')));
         } finally {
           if (mounted) setState(() => _savingName = false);
         }
         break;
 
-      case Field.location:
+      case _Field.location:
         setState(() => _savingLocation = true);
         try {
           await _saveProfile(location: _location.text);
           if (!mounted) return;
           setState(() => _editLocation = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location updated')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Location updated')));
         } finally {
           if (mounted) setState(() => _savingLocation = false);
         }
         break;
 
-      case Field.phone:
+      case _Field.phone:
         final err = _validatePhone(_phone.text);
         if (err != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err)),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
           return;
         }
         setState(() => _savingPhone = true);
@@ -152,28 +139,56 @@ class _ProfilePageState extends State<ProfilePage> {
           await _saveProfile(phone: _phone.text);
           if (!mounted) return;
           setState(() => _editPhone = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Phone updated')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Phone updated')));
         } finally {
           if (mounted) setState(() => _savingPhone = false);
         }
         break;
     }
 
-    // Keep UI consistent if store updated elsewhere
     if (!mounted) return;
     FocusScope.of(context).unfocus();
-    // subtle: let store drive canonical values
     _syncControllersFromStore();
-    // ignore: unused_local_variable
-    final _ = cs;
+  }
+
+  Future<void> _confirmLogout() async {
+    final cs = Theme.of(context).colorScheme;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('This clears your local demo session on this device.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: cs.error,
+              foregroundColor: cs.onError,
+            ),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    await AuthStore.instance.logout();
+    await ProfileStore.instance.clear();
+
+    if (!mounted) return;
+
+    // Return to app root; PetOptApp(home: ...) will decide next screen.
+    Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
-    final postStore = PostStore.instance;
     final profileStore = ProfileStore.instance;
+    final authStore = AuthStore.instance;
 
     final t = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
@@ -181,15 +196,14 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: AnimatedBuilder(
-        animation: Listenable.merge([postStore, profileStore]),
+        animation: Listenable.merge([profileStore, authStore]),
         builder: (context, _) {
           final p = profileStore.profile;
 
-          // If not editing a field, keep controllers synced to store.
+          // Keep controllers synced unless actively editing that field.
           if (!_editName && !_editLocation && !_editPhone) {
             _syncControllersFromStore();
           } else {
-            // sync only non-editing fields (so we don't fight the user)
             if (!_editName) _name.text = p?.name ?? '';
             if (!_editLocation) _location.text = p?.location ?? '';
             if (!_editPhone) _phone.text = p?.phone ?? '';
@@ -198,116 +212,83 @@ class _ProfilePageState extends State<ProfilePage> {
           final displayName =
               (p != null && p.name.trim().isNotEmpty) ? p.name.trim() : 'User';
 
-          final posts = postStore.posts;
-          final myPosts = posts.where((x) {
-            final a = x.authorName.trim();
-            return a == displayName || a == 'You';
-          }).toList();
+          final session = authStore.session;
+          final email = session?.email.trim() ?? '';
+          final acct = session?.accountType ?? AccountType.individual;
 
-          final savedPosts = posts.where((x) => x.saved).toList();
-
-          final totalLikesReceived =
-              myPosts.fold<int>(0, (sum, x) => sum + x.likeCount);
-
-          // (If you later persist account type, wire it from AuthStore/ProfileStore.)
-          const accountType = AccountType.individual;
-
-          return SingleChildScrollView(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeaderCard(
-                  nameController: _name,
-                  accountType: accountType,
-                  editing: _editName,
-                  saving: _savingName,
-                  onEdit: () => setState(() => _editName = true),
-                  onCancel: () => _revertField(Field.name),
-                  onConfirm: () => _confirmField(Field.name),
+            children: [
+              _HeaderCard(
+                nameController: _name,
+                displayNameFallback: displayName,
+                subtitle: email.isNotEmpty ? email : 'Demo user',
+                badgeLabel: accountTypeLabel(acct),
+                editing: _editName,
+                saving: _savingName,
+                onEdit: () => setState(() => _editName = true),
+                onCancel: () => _revertField(_Field.name),
+                onConfirm: () => _confirmField(_Field.name),
+              ),
+              const SizedBox(height: 12),
+
+              _DetailsCard(
+                locationController: _location,
+                phoneController: _phone,
+                editLocation: _editLocation,
+                editPhone: _editPhone,
+                savingLocation: _savingLocation,
+                savingPhone: _savingPhone,
+                onEditLocation: () => setState(() => _editLocation = true),
+                onEditPhone: () => setState(() => _editPhone = true),
+                onCancelLocation: () => _revertField(_Field.location),
+                onCancelPhone: () => _revertField(_Field.phone),
+                onConfirmLocation: () => _confirmField(_Field.location),
+                onConfirmPhone: () => _confirmField(_Field.phone),
+              ),
+
+              const SizedBox(height: 12),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 12),
-
-                _DetailsCard(
-                  locationController: _location,
-                  phoneController: _phone,
-                  editLocation: _editLocation,
-                  editPhone: _editPhone,
-                  savingLocation: _savingLocation,
-                  savingPhone: _savingPhone,
-                  onEditLocation: () => setState(() => _editLocation = true),
-                  onEditPhone: () => setState(() => _editPhone = true),
-                  onCancelLocation: () => _revertField(Field.location),
-                  onCancelPhone: () => _revertField(Field.phone),
-                  onConfirmLocation: () => _confirmField(Field.location),
-                  onConfirmPhone: () => _confirmField(Field.phone),
-                ),
-
-                const SizedBox(height: 16),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    _StatPill(label: "Posts", value: myPosts.length),
-                    _StatPill(label: "Saved", value: savedPosts.length),
-                    _StatPill(label: "Likes", value: totalLikesReceived),
+                    ListTile(
+                      leading: const Icon(Icons.badge_outlined),
+                      title: const Text('Identity'),
+                      subtitle: Text('Signed in as $displayName'),
+                    ),
+                    Divider(height: 1, color: cs.outlineVariant.withOpacity(0.7)),
+                    ListTile(
+                      leading: const Icon(Icons.logout),
+                      title: const Text('Log out'),
+                      subtitle: const Text('Clear demo session on this device'),
+                      onTap: _confirmLogout,
+                    ),
                   ],
                 ),
-
-                const SizedBox(height: 24),
-
-                Text("My Posts",
-                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
-                myPosts.isEmpty
-                    ? const _EmptyState(
-                        message:
-                            "You haven't posted anything yet.\nCreate your first adoption post.",
-                      )
-: Column(
-    children: myPosts.map((p) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _MiniPostCard(
-          post: p,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => EditPostPage(post: p),
               ),
-            );
-          },
-        ),
-      );
-    }).toList(),
-  ),
 
-                const SizedBox(height: 24),
-
-                Text("Saved Posts",
-                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
-                savedPosts.isEmpty
-                    ? const _EmptyState(message: "You haven't saved any posts yet.")
-                    : Column(
-                        children: savedPosts
-                            .map((x) => _MiniPostCard(post: x))
-                            .toList(),
-                      ),
-
-                const SizedBox(height: 32),
-                Divider(color: cs.outlineVariant),
-                const SizedBox(height: 12),
-
-                Text(
-                  "Demo Mode",
-                  style: t.bodySmall?.copyWith(
-                    color: cs.onSurface.withOpacity(0.6),
-                  ),
+              const SizedBox(height: 24),
+              Divider(color: cs.outlineVariant),
+              const SizedBox(height: 12),
+              Text(
+                "Demo Mode",
+                style: t.bodySmall?.copyWith(
+                  color: cs.onSurface.withOpacity(0.6),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Profile data is stored locally on this device.",
+                style: t.bodySmall?.copyWith(
+                  color: cs.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -315,11 +296,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-enum Field { name, location, phone }
-
 class _HeaderCard extends StatelessWidget {
   final TextEditingController nameController;
-  final AccountType accountType;
+  final String displayNameFallback;
+  final String subtitle;
+  final String badgeLabel;
 
   final bool editing;
   final bool saving;
@@ -329,7 +310,9 @@ class _HeaderCard extends StatelessWidget {
 
   const _HeaderCard({
     required this.nameController,
-    required this.accountType,
+    required this.displayNameFallback,
+    required this.subtitle,
+    required this.badgeLabel,
     required this.editing,
     required this.saving,
     required this.onEdit,
@@ -342,8 +325,9 @@ class _HeaderCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
 
-    final nameShown =
-        nameController.text.trim().isEmpty ? 'User' : nameController.text.trim();
+    final nameShown = nameController.text.trim().isNotEmpty
+        ? nameController.text.trim()
+        : displayNameFallback;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -375,8 +359,7 @@ class _HeaderCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           nameShown,
-                          style:
-                              t.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                          style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
                       IconButton(
@@ -424,6 +407,14 @@ class _HeaderCard extends StatelessWidget {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => onConfirm(),
                   ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: t.bodySmall?.copyWith(
+                    color: cs.onSurface.withOpacity(0.7),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -432,10 +423,10 @@ class _HeaderCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    accountTypeLabel(accountType),
+                    badgeLabel,
                     style: t.labelMedium?.copyWith(
                       color: cs.primary,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -499,7 +490,6 @@ class _DetailsCard extends StatelessWidget {
           Text("Details", style: t.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
 
-          // Location
           if (!editLocation)
             _ReadRow(
               icon: Icons.location_on,
@@ -524,7 +514,6 @@ class _DetailsCard extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          // Phone
           if (!editPhone)
             _ReadRow(
               icon: Icons.phone,
@@ -673,135 +662,6 @@ class _EditRow extends StatelessWidget {
       ),
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  final String label;
-  final int value;
-
-  const _StatPill({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value.toString(),
-            style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: t.bodySmall?.copyWith(
-              color: cs.onSurface.withOpacity(0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _MiniPostCard extends StatelessWidget {
-  final Post post;
-  final VoidCallback? onTap;
-
-  const _MiniPostCard({required this.post, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
-
-    final clickable = onTap != null;
-
-    return Material(
-      color: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              if (post.media.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: Image.asset(
-                      post.media.first.path,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Container(color: cs.outlineVariant),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  post.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (clickable) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  color: cs.onSurface.withOpacity(0.5),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _EmptyState extends StatelessWidget {
-  final String message;
-
-  const _EmptyState({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        message,
-        style: t.bodyMedium?.copyWith(
-          color: cs.onSurface.withOpacity(0.7),
-        ),
-      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../feed/feed_page.dart';
-import '../post/create_post_page.dart';
+import '../post/posts_page.dart';
 import '../profile/profile_page.dart';
 
 class HomeShellPage extends StatefulWidget {
@@ -13,10 +14,10 @@ class HomeShellPage extends StatefulWidget {
 class _HomeShellPageState extends State<HomeShellPage> {
   int _index = 0;
 
-  // Keep pages alive (scroll positions, forms, etc.)
+  // Keep pages alive (scroll positions, tab state, etc.)
   late final List<Widget> _pages = const [
     FeedPage(),
-    CreatePostPage(),
+    PostsPage(),
     ProfilePage(),
   ];
 
@@ -44,9 +45,9 @@ class _HomeShellPageState extends State<HomeShellPage> {
             label: 'Feed',
           ),
           NavigationDestination(
-            icon: Icon(Icons.add_box_outlined),
-            selectedIcon: Icon(Icons.add_box),
-            label: 'Post',
+            icon: Icon(Icons.library_books_outlined),
+            selectedIcon: Icon(Icons.library_books),
+            label: 'Posts',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

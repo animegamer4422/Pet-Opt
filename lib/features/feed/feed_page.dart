@@ -10,11 +10,52 @@ import 'package:video_player/video_player.dart';
 import '../../data/post_store.dart';
 import '../../models/post.dart';
 
+import '../../shared/video_blur_cache.dart';
+
+
 class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
 
   @override
   State<FeedPage> createState() => _FeedPageState();
+}
+
+class _CachedBlurredVideoBackground extends StatelessWidget {
+  final String path;
+  final BoxFit fit;
+
+  const _CachedBlurredVideoBackground({
+    required this.path,
+    required this.fit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return FutureBuilder<File?>(
+      future: VideoBlurCache.instance.getBlurredThumbFile(
+        path,
+        width: 420,
+        blurRadius: 18,
+        quality: 80,
+      ),
+      builder: (context, snap) {
+        final f = snap.data;
+        if (f == null) {
+          // fallback (fast)
+          return Container(color: cs.surfaceContainerHighest);
+        }
+
+        return Image.file(
+          f,
+          fit: fit,
+          filterQuality: FilterQuality.low,
+          errorBuilder: (_, __, ___) => Container(color: cs.surfaceContainerHighest),
+        );
+      },
+    );
+  }
 }
 
 class _FeedPageState extends State<FeedPage> {
@@ -396,14 +437,12 @@ class RedditBlurMediaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isImage = item.type == MediaType.image;
 
-    final Widget background = isImage
-        ? _ImageLayer(path: item.path, fit: BoxFit.cover)
-        : _VideoPreviewFrame(
-            key: ValueKey('bg_${item.path}'),
-            path: item.path,
-            fit: BoxFit.cover,
-            showPlayOverlay: false,
-          );
+      final Widget background = isImage
+          ? _ImageLayer(path: item.path, fit: BoxFit.cover)
+          : _CachedBlurredVideoBackground(
+              path: item.path,
+              fit: BoxFit.cover,
+            );
 
     final Widget foreground = isImage
         ? _ImageLayer(path: item.path, fit: BoxFit.contain)
@@ -418,14 +457,16 @@ class RedditBlurMediaTile extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         background,
-        Positioned.fill(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
-              child: Container(color: Colors.transparent),
+        // Keep BackdropFilter only for images (video already pre-blurred).
+          if (isImage)
+            Positioned.fill(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
             ),
-          ),
-        ),
         Center(
           child: Hero(tag: heroTag, child: foreground),
         ),
@@ -718,12 +759,7 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
 
                     final Widget bg = isImage
                         ? _ImageLayer(path: item.path, fit: BoxFit.cover)
-                        : _VideoPreviewFrame(
-                            key: ValueKey('fsbg_${item.path}'),
-                            path: item.path,
-                            fit: BoxFit.cover,
-                            showPlayOverlay: false,
-                          );
+                        : _CachedBlurredVideoBackground(path: item.path, fit: BoxFit.cover); 
 
                     final Widget fg = isImage
                         ? _FullscreenImage(
