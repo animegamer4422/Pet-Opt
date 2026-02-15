@@ -9,9 +9,8 @@ class AuthPage extends StatefulWidget {
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
-  late final TabController _tabs;
-
+class _AuthPageState extends State<AuthPage> {
+  bool _isLogin = true;
   AccountType _accountType = AccountType.individual;
 
   final _loginEmail = TextEditingController();
@@ -22,14 +21,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   final _signupConfirm = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
   void dispose() {
-    _tabs.dispose();
     _loginEmail.dispose();
     _loginPassword.dispose();
     _signupEmail.dispose();
@@ -40,7 +32,6 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
   void _continueAfterAuth() {
     // Mock success for now.
-    // In the next step, this should go to your bottom-nav home (e.g. Routes.home).
     Navigator.pushReplacementNamed(context, Routes.feed);
   }
 
@@ -49,8 +40,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     final t = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
-    final isLogin = _tabs.index == 0;
-    final roleLabel = isLogin ? 'Logging in as' : 'Signing up as';
+    final roleLabel = _isLogin ? 'Logging in as' : 'Signing up as';
 
     return Scaffold(
       body: SafeArea(
@@ -108,35 +98,25 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
             const SizedBox(height: 14),
 
-            // Login / Signup tabs
+            // Login / Sign up (same segmented style)
             _SectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Get started', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    child: TabBar(
-                      controller: _tabs,
-                      onTap: (_) => setState(() {}), // update "Logging in as" label
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                      unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                      indicator: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      tabs: const [
-                        Tab(text: 'Login'),
-                        Tab(text: 'Sign up'),
-                      ],
-                    ),
+                  Text(
+                    'Get started',
+                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  _BigSegmented<bool>(
+                    value: _isLogin,
+                    left: true,
+                    right: false,
+                    leftLabel: 'Login',
+                    rightLabel: 'Sign up',
+                    leftIcon: Icons.login,
+                    rightIcon: Icons.person_add,
+                    onChanged: (v) => setState(() => _isLogin = v),
                   ),
                 ],
               ),
@@ -144,12 +124,15 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
             const SizedBox(height: 14),
 
-            // Role selector (Individual/Organization) — ✅ summary pill removed
+            // Role selector (Individual/Organization)
             _SectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(roleLabel, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(
+                    roleLabel,
+                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 10),
                   _BigSegmented<AccountType>(
                     value: _accountType,
@@ -169,24 +152,24 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
             // Forms
             _SectionCard(
-              child: SizedBox(
-                height: 340,
-                child: TabBarView(
-                  controller: _tabs,
-                  children: [
-                    _LoginForm(
-                      email: _loginEmail,
-                      password: _loginPassword,
-                      onSubmit: _continueAfterAuth,
-                    ),
-                    _SignupForm(
-                      email: _signupEmail,
-                      password: _signupPassword,
-                      confirm: _signupConfirm,
-                      onSubmit: _continueAfterAuth,
-                    ),
-                  ],
-                ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _isLogin
+                    ? _LoginForm(
+                        key: const ValueKey('login'),
+                        email: _loginEmail,
+                        password: _loginPassword,
+                        onSubmit: _continueAfterAuth,
+                      )
+                    : _SignupForm(
+                        key: const ValueKey('signup'),
+                        email: _signupEmail,
+                        password: _signupPassword,
+                        confirm: _signupConfirm,
+                        onSubmit: _continueAfterAuth,
+                      ),
               ),
             ),
 
@@ -204,61 +187,91 @@ class _LoginForm extends StatelessWidget {
   final VoidCallback onSubmit;
 
   const _LoginForm({
+    super.key,
     required this.email,
     required this.password,
     required this.onSubmit,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+@override
+Widget build(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: email,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      TextField(
+        controller: email,
+        style: const TextStyle(fontSize: 16),
+        decoration: InputDecoration(
+          labelText: 'Email',
+          prefixIcon: const Icon(Icons.email),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 20, // ⬅ taller input
           ),
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: password,
-          decoration: const InputDecoration(
-            labelText: 'Password',
-            prefixIcon: Icon(Icons.lock),
-          ),
-          obscureText: true,
-        ),
-        const SizedBox(height: 18),
-        FilledButton.icon(
-          onPressed: onSubmit,
-          icon: const Icon(Icons.login),
-          label: const Text('Login'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(54),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-        const SizedBox(height: 10),
-        TextButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Forgot password flow later')),
-            );
-          },
-          style: TextButton.styleFrom(foregroundColor: cs.primary),
-          child: const Text('Forgot password?'),
+        keyboardType: TextInputType.emailAddress,
+      ),
+
+      const SizedBox(height: 26), // ⬅ more space
+
+      TextField(
+        controller: password,
+        style: const TextStyle(fontSize: 16),
+        decoration: InputDecoration(
+          labelText: 'Password',
+          prefixIcon: const Icon(Icons.lock),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 20, // ⬅ taller input
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
-      ],
-    );
-  }
+        obscureText: true,
+      ),
+
+      const SizedBox(height: 30), // ⬅ clearer separation before button
+
+      FilledButton.icon(
+        onPressed: onSubmit,
+        icon: const Icon(Icons.login),
+        label: const Text('Login'),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(60), // ⬅ taller button
+          textStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+
+      const SizedBox(height: 16),
+
+      TextButton(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Forgot password flow later')),
+          );
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: cs.primary,
+          textStyle: const TextStyle(fontSize: 15),
+        ),
+        child: const Text('Forgot password?'),
+      ),
+    ],
+  );
 }
-
+}
 class _SignupForm extends StatelessWidget {
   final TextEditingController email;
   final TextEditingController password;
@@ -266,6 +279,7 @@ class _SignupForm extends StatelessWidget {
   final VoidCallback onSubmit;
 
   const _SignupForm({
+    super.key,
     required this.email,
     required this.password,
     required this.confirm,
@@ -279,39 +293,74 @@ class _SignupForm extends StatelessWidget {
       children: [
         TextField(
           controller: email,
-          decoration: const InputDecoration(
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
             labelText: 'Email',
-            prefixIcon: Icon(Icons.email),
+            prefixIcon: const Icon(Icons.email),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 20, // ⬅ taller field
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 26),
+
         TextField(
           controller: password,
-          decoration: const InputDecoration(
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
             labelText: 'Password',
-            prefixIcon: Icon(Icons.lock),
+            prefixIcon: const Icon(Icons.lock),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 20,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           obscureText: true,
         ),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 26),
+
         TextField(
           controller: confirm,
-          decoration: const InputDecoration(
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
             labelText: 'Confirm password',
-            prefixIcon: Icon(Icons.lock_outline),
+            prefixIcon: const Icon(Icons.lock_outline),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 20,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           obscureText: true,
         ),
-        const SizedBox(height: 18),
+
+        const SizedBox(height: 32),
+
         FilledButton.icon(
           onPressed: onSubmit,
           icon: const Icon(Icons.person_add),
           label: const Text('Create account'),
           style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(54),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            minimumSize: const Size.fromHeight(60), // ⬅ taller button
+            textStyle: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ),
       ],

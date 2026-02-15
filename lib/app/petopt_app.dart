@@ -9,10 +9,19 @@ class PetOptApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PetOpt',
-      theme: buildPetOptTheme(),
+      debugShowCheckedModeBanner: false,
+
+      // ✅ Auto-switch based on device theme + live updates
+      themeMode: ThemeMode.system,
+
+      // ✅ Light theme
+      theme: buildPetOptTheme(Brightness.light),
+
+      // ✅ Dark theme
+      darkTheme: buildPetOptTheme(Brightness.dark),
+
       initialRoute: Routes.auth,
       onGenerateRoute: Routes.onGenerateRoute,
-      debugShowCheckedModeBanner: false,
     );
   }
 }

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
-ThemeData buildPetOptTheme() {
+ThemeData buildPetOptTheme(Brightness brightness) {
   const seed = Color(0xFF4E7CF6);
-  final scheme = ColorScheme.fromSeed(seedColor: seed);
+
+  final scheme = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: brightness,
+  );
 
   return ThemeData(
     colorScheme: scheme,
@@ -16,7 +20,6 @@ ThemeData buildPetOptTheme() {
       surfaceTintColor: Colors.transparent,
     ),
 
-    // ✅ Use CardThemeData for Flutter versions where ThemeData.cardTheme expects CardThemeData?
     cardTheme: CardThemeData(
       elevation: 0,
       color: scheme.surface,
