@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/post_store.dart';
 import '../../models/post.dart';
+import '../onboarding/data/profile_store.dart';
 
 enum AccountType { individual, organization }
 enum PrimaryIntent { adopt, post }
@@ -17,27 +18,37 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = PostStore.instance;
+    final profileStore = ProfileStore.instance;
+
     final t = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-
-    // Demo user (for now)
-    const currentUserName = "Hari";
-    const accountType = AccountType.individual;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: AnimatedBuilder(
-        animation: store,
+        // listen to BOTH stores so UI updates when profile changes
+        animation: Listenable.merge([store, profileStore]),
         builder: (context, _) {
+          final p = profileStore.profile;
+
+          final currentUserName =
+              (p != null && p.name.trim().isNotEmpty) ? p.name.trim() : 'User';
+          final location = (p?.location.trim().isNotEmpty ?? false)
+              ? p!.location.trim()
+              : '';
+
+          // (If you later store account type in ProfileStore, wire it here.)
+          const accountType = AccountType.individual;
+
           final posts = store.posts;
 
           final myPosts =
-              posts.where((p) => p.authorName == currentUserName).toList();
+              posts.where((x) => x.authorName == currentUserName).toList();
 
-          final savedPosts = posts.where((p) => p.saved).toList();
+          final savedPosts = posts.where((x) => x.saved).toList();
 
           final totalLikesReceived =
-              myPosts.fold<int>(0, (sum, p) => sum + p.likeCount);
+              myPosts.fold<int>(0, (sum, x) => sum + x.likeCount);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -46,11 +57,11 @@ class ProfilePage extends StatelessWidget {
               children: [
                 _ProfileHeaderCard(
                   name: currentUserName,
+                  location: location,
                   accountType: accountType,
                 ),
                 const SizedBox(height: 16),
 
-                /// Stats Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -62,42 +73,34 @@ class ProfilePage extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                /// My Posts Section
                 Text("My Posts",
-                    style: t.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 myPosts.isEmpty
-                    ? _EmptyState(
+                    ? const _EmptyState(
                         message:
-                            "You haven't posted anything yet.\nCreate your first adoption post.")
+                            "You haven't posted anything yet.\nCreate your first adoption post.",
+                      )
                     : Column(
-                        children: myPosts
-                            .map((p) => _MiniPostCard(post: p))
-                            .toList(),
+                        children:
+                            myPosts.map((x) => _MiniPostCard(post: x)).toList(),
                       ),
 
                 const SizedBox(height: 24),
 
-                /// Saved Section
                 Text("Saved Posts",
-                    style: t.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 savedPosts.isEmpty
-                    ? _EmptyState(
-                        message:
-                            "You haven't saved any posts yet.")
+                    ? const _EmptyState(message: "You haven't saved any posts yet.")
                     : Column(
                         children: savedPosts
-                            .map((p) => _MiniPostCard(post: p))
+                            .map((x) => _MiniPostCard(post: x))
                             .toList(),
                       ),
 
                 const SizedBox(height: 32),
-
                 Divider(color: cs.outlineVariant),
-
                 const SizedBox(height: 12),
 
                 Text(
@@ -117,10 +120,12 @@ class ProfilePage extends StatelessWidget {
 
 class _ProfileHeaderCard extends StatelessWidget {
   final String name;
+  final String location;
   final AccountType accountType;
 
   const _ProfileHeaderCard({
     required this.name,
+    required this.location,
     required this.accountType,
   });
 
@@ -155,24 +160,46 @@ class _ProfileHeaderCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: t.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                  style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    accountTypeLabel(accountType),
-                    style: t.labelMedium?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        accountTypeLabel(accountType),
+                        style: t.labelMedium?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (location.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      Icon(Icons.location_on,
+                          size: 16, color: cs.onSurface.withOpacity(0.65)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodySmall?.copyWith(
+                            color: cs.onSurface.withOpacity(0.7),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -207,8 +234,7 @@ class _StatPill extends StatelessWidget {
         children: [
           Text(
             value.toString(),
-            style:
-                t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(
@@ -262,8 +288,7 @@ class _MiniPostCard extends StatelessWidget {
               post.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style:
-                  t.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

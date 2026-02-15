@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/routes.dart';
+import 'data/profile_store.dart';
+
 
 class ProfileSetupPage extends StatefulWidget {
   const ProfileSetupPage({super.key});
@@ -17,6 +19,18 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
 
   bool _isSaving = false;
 
+@override
+void initState() {
+  super.initState();
+
+  final p = ProfileStore.instance.profile;
+  if (p != null) {
+    _name.text = p.name;
+    _location.text = p.location;
+    _phone.text = p.phone;
+  }
+}
+
   @override
   void dispose() {
     _name.dispose();
@@ -25,19 +39,22 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     super.dispose();
   }
 
-  Future<void> _saveAndContinue() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _saveAndContinue() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+  setState(() => _isSaving = true);
 
-    // TODO: Save to backend later
-    await Future.delayed(const Duration(milliseconds: 500));
+  await ProfileStore.instance.saveProfile(
+    name: _name.text,
+    location: _location.text,
+    phone: _phone.text,
+  );
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+  if (!mounted) return;
+  setState(() => _isSaving = false);
 
-Navigator.pushReplacementNamed(context, Routes.home);
-  }
+  Navigator.pushReplacementNamed(context, Routes.home);
+}
 
   @override
   Widget build(BuildContext context) {
