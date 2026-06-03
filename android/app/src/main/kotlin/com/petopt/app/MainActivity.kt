@@ -1,4 +1,4 @@
-package com.example.petopt
+package com.petopt.app
 
 import io.flutter.embedding.android.FlutterActivity
 
